@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
     client_id: str
     isin: Optional[str] = None
     fund_name: Optional[str] = None
+    product_data: Optional[dict] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -45,15 +46,42 @@ CLIENT_CONFIGS = {
     }
 }
 
-def get_system_prompt(client_id: str, isin: str = None, fund_name: str = None):
+def get_system_prompt(client_id: str, isin: str = None, fund_name: str = None, product_data: dict = None):
     client_config = CLIENT_CONFIGS.get(client_id, CLIENT_CONFIGS["default"])
     
     base_prompt = f"""Du bist ein hilfreicher Assistent für Finanzprodukte bei {client_config['name']}.
+
+STRIKTE REGELN - NIEMALS BRECHEN:
+1. Du darfst KEINE Anlageberatung geben
+2. Du darfst KEINE Kauf- oder Verkaufsempfehlungen aussprechen
+3. Du darfst KEINE Renditeprognosen oder Kursziele nennen
+4. Du darfst NICHT sagen "dieses Produkt ist besser als jenes"
+5. Du darfst KEINE persönlichen Anlagestrategien empfehlen
+
+WAS DU DARFST:
+- Fachbegriffe erklären (z.B. "Was ist eine TER?", "Was bedeutet Tracking Error?")
+- Allgemeine Funktionsweise von ETFs/Fonds erklären
+- Unterschiede zwischen Anlageklassen erklären (Aktien vs. Anleihen)
+- Allgemeine Informationen über Indizes geben (z.B. "Der MSCI World umfasst...")
+- Risiken von Anlageklassen allgemein erklären
+- Die aktuellen Produktdaten nennen, die dir zur Verfügung stehen
+
+PRODUKTSPEZIFISCHE FRAGEN:
+- Nutze dein Trainingswissen über bekannte ETFs und Fonds
+- Bei unbekannten Produkten: Erkläre die Anlageklasse allgemein
+- Wenn Produktdaten verfügbar sind, nutze diese für präzise Antworten
+
+ANTWORTSTIL:
+- Kurz und präzise (max. 3-4 Sätze)
+- Professionell aber verständlich
+- Keine Fachbegriffe ohne Erklärung
+- Freundlich und hilfsbereit
 
 DISCLAIMER:
 Beende komplexe Antworten mit: "{client_config['disclaimer']}"
 """
     
+    # ISIN und Fondsname hinzufügen
     if isin or fund_name:
         context = f"\n\nKONTEXT: Der Nutzer betrachtet gerade das Produkt:\n"
         if fund_name:
@@ -61,6 +89,13 @@ Beende komplexe Antworten mit: "{client_config['disclaimer']}"
         if isin:
             context += f"- ISIN: {isin}\n"
         base_prompt += context
+    
+    # NEU: Produktdaten hinzufügen
+    if product_data:
+        data_context = "\n\nAKTUELLE PRODUKTDATEN (verwende diese für präzise Antworten):\n"
+        for key, value in product_data.items():
+            data_context += f"- {key}: {value}\n"
+        base_prompt += data_context
     
     return base_prompt
 
@@ -77,6 +112,7 @@ async def chat(request: ChatRequest):
             client_id=request.client_id,
             isin=request.isin,
             fund_name=request.fund_name
+            product_data=request.product_data
         )
         
         messages = [{"role": "system", "content": system_prompt}]
