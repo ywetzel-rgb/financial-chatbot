@@ -149,32 +149,3 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-```
-
-4. Scrolle nach unten
-5. Bei "Commit message": `Backend erstellt`
-6. Klicke **"Commit new file"**
-
-### Schritt 7: requirements.txt erstellen
-
-1. Klicke **"Add file"** → **"Create new file"**
-2. Dateiname: `backend/requirements.txt`
-3. Füge ein:
-```
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-openai==1.3.0
-pydantic==2.5.0
-python-dotenv==1.0.0
-```
-
-4. Commit message: `Requirements hinzugefügt`
-5. Klicke **"Commit new file"**
-
-### Schritt 8: Procfile erstellen
-
-1. Klicke **"Add file"** → **"Create new file"**
-2. Dateiname: `backend/Procfile`
-3. Füge ein:
-```
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
