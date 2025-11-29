@@ -1,0 +1,180 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from openai import OpenAI
+import os
+from typing import List, Optional
+
+app = FastAPI(title="Financial Chatbot API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+class Message(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[Message]
+    client_id: str
+    isin: Optional[str] = None
+    fund_name: Optional[str] = None
+
+class ChatResponse(BaseModel):
+    response: str
+
+CLIENT_CONFIGS = {
+    "comdirect": {
+        "name": "comdirect",
+        "disclaimer": "Dies ist keine Anlageberatung von comdirect."
+    },
+    "consorsbank": {
+        "name": "Consorsbank",
+        "disclaimer": "Dies ist keine Anlageberatung von Consorsbank."
+    },
+    "default": {
+        "name": "Finanzportal",
+        "disclaimer": "Dies ist keine Anlageberatung."
+    }
+}
+
+def get_system_prompt(client_id: str, isin: str = None, fund_name: str = None):
+    client_config = CLIENT_CONFIGS.get(client_id, CLIENT_CONFIGS["default"])
+    
+    base_prompt = f"""Du bist ein hilfreicher Assistent für Finanzprodukte bei {client_config['name']}.
+
+STRIKTE REGELN - NIEMALS BRECHEN:
+1. Du darfst KEINE Anlageberatung geben
+2. Du darfst KEINE Kauf- oder Verkaufsempfehlungen aussprechen
+3. Du darfst KEINE Renditeprognosen oder Kursziele nennen
+4. Du darfst NICHT sagen "dieses Produkt ist besser als jenes"
+5. Du darfst KEINE persönlichen Anlagestrategien empfehlen
+
+WAS DU DARFST:
+- Fachbegriffe erklären (z.B. "Was ist eine TER?", "Was bedeutet Tracking Error?")
+- Allgemeine Funktionsweise von ETFs/Fonds erklären
+- Unterschiede zwischen Anlageklassen erklären (Aktien vs. Anleihen)
+- Allgemeine Informationen über Indizes geben (z.B. "Der MSCI World umfasst...")
+- Risiken von Anlageklassen allgemein erklären
+
+PRODUKTSPEZIFISCHE FRAGEN:
+- Nutze dein Trainingswissen über bekannte ETFs und Fonds
+- Bei unbekannten Produkten: Erkläre die Anlageklasse allgemein
+- Verweise für detaillierte Produktdaten auf das Factsheet/KIID
+
+ANTWORTSTIL:
+- Kurz und präzise (max. 3-4 Sätze)
+- Professionell aber verständlich
+- Keine Fachbegriffe ohne Erklärung
+- Freundlich und hilfsbereit
+
+DISCLAIMER:
+Beende komplexe Antworten mit: "{client_config['disclaimer']}"
+"""
+    
+    if isin or fund_name:
+        context = f"\n\nKONTEXT: Der Nutzer betrachtet gerade das Produkt:\n"
+        if fund_name:
+            context += f"- Name: {fund_name}\n"
+        if isin:
+            context += f"- ISIN: {isin}\n"
+        base_prompt += context
+    
+    return base_prompt
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    try:
+        if not request.client_id:
+            raise HTTPException(status_code=400, detail="client_id ist erforderlich")
+        
+        if not request.messages or len(request.messages) == 0:
+            raise HTTPException(status_code=400, detail="Mindestens eine Nachricht erforderlich")
+        
+        system_prompt = get_system_prompt(
+            client_id=request.client_id,
+            isin=request.isin,
+            fund_name=request.fund_name
+        )
+        
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        for msg in request.messages:
+            messages.append({
+                "role": msg.role,
+                "content": msg.content
+            })
+        
+        response = client.chat.completions.create(
+            model="gpt-4-turbo-preview",
+            messages=messages,
+            temperature=0.7,
+            max_tokens=500,
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
+        )
+        
+        assistant_message = response.choices[0].message.content
+        
+        return ChatResponse(response=assistant_message)
+        
+    except Exception as e:
+        print(f"Error in chat endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ein Fehler ist aufgetreten: {str(e)}")
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "financial-chatbot-api",
+        "version": "1.0.0"
+    }
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Financial Chatbot API",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+4. Scrolle nach unten
+5. Bei "Commit message": `Backend erstellt`
+6. Klicke **"Commit new file"**
+
+### Schritt 7: requirements.txt erstellen
+
+1. Klicke **"Add file"** → **"Create new file"**
+2. Dateiname: `backend/requirements.txt`
+3. Füge ein:
+```
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+openai==1.3.0
+pydantic==2.5.0
+python-dotenv==1.0.0
+```
+
+4. Commit message: `Requirements hinzugefügt`
+5. Klicke **"Commit new file"**
+
+### Schritt 8: Procfile erstellen
+
+1. Klicke **"Add file"** → **"Create new file"**
+2. Dateiname: `backend/Procfile`
+3. Füge ein:
+```
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
