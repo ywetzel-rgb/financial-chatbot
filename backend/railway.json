@@ -9,17 +9,3 @@
     "healthcheckTimeout": 100
   }
 }
-```
-
-4. Commit message: `Railway Konfiguration hinzugefügt`
-5. Klicke **"Commit new file"**
-
-**✅ Checkpoint:** Dein Repository hat jetzt die Ordnerstruktur:
-```
-financial-chatbot/
-├── backend/
-│   ├── main.py
-│   ├── requirements.txt
-│   ├── Procfile
-│   └── railway.json
-└── README.md
