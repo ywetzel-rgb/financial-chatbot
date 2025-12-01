@@ -98,13 +98,10 @@ async def chat(request: ChatRequest):
             })
         
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=messages,
-            temperature=0.7,
-            max_tokens=500,
-            top_p=1.0,
-            frequency_penalty=0.0,
-            presence_penalty=0.0
+            temperature=0.8,
+            max_tokens=1000
         )
         
         assistant_message = response.choices[0].message.content
